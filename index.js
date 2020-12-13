@@ -6,6 +6,7 @@ const app = express()
 
 app.use(express.json())
 app.use(cors())
+app.use(express.static("build")) // this helps in serving static files from the production build of the frontend
 
 let persons = [
 	{
