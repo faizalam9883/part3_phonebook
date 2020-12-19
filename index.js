@@ -1,8 +1,8 @@
+require("dotenv").config()
 const express = require("express")
 const morgan = require("morgan")
 const cors = require("cors")
 const Person = require("./models/people")
-const { response } = require("express")
 
 const app = express()
 
@@ -10,7 +10,7 @@ app.use(express.json())
 app.use(cors())
 app.use(express.static("build")) // this helps in serving static files from the production build of the frontend
 
-morgan.token("body", (req, res) => JSON.stringify(req.body))
+morgan.token("body", (req) => JSON.stringify(req.body))
 
 app.use(
 	morgan(
@@ -35,7 +35,7 @@ app.get("/api/persons", (request, response, next) => {
 })
 
 // this returns the page for localhost/info
-app.get("/info", (request, response, next) => {
+app.get("/info", (request, response) => {
 	Person.find({}).then((people) => {
 		const length = people.length
 		response.send(`<p>Phonebook has info for ${length} people.</p>
@@ -59,7 +59,7 @@ app.get("/api/persons/:id", (request, response, next) => {
 // this deletes the resource matching the id
 app.delete("/api/persons/:id", (request, response, next) => {
 	Person.findByIdAndDelete(request.params.id)
-		.then((result) => {
+		.then(() => {
 			response.status(204).end()
 		})
 		.catch((error) => next(error))

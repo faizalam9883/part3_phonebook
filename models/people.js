@@ -13,8 +13,8 @@ mongoose
 		useFindAndModify: false,
 		useCreateIndex: true,
 	})
-	.then((result) => {
-		console.log(`connected to MongoDB`)
+	.then(() => {
+		console.log("connected to MongoDB")
 	})
 	.catch((error) => {
 		console.log(`Error connecting to MongoDB ${error.message}`)
