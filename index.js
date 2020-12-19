@@ -1,6 +1,8 @@
 const express = require("express")
 const morgan = require("morgan")
 const cors = require("cors")
+const Person = require("./models/people")
+const { response } = require("express")
 
 const app = express()
 
@@ -8,28 +10,6 @@ app.use(express.json())
 app.use(cors())
 app.use(express.static("build")) // this helps in serving static files from the production build of the frontend
 
-let persons = [
-	{
-		id: 1,
-		name: "Arto Hellas",
-		number: "040-123456",
-	},
-	{
-		id: 2,
-		name: "Ada Lovelace",
-		number: "39-44-5323523",
-	},
-	{
-		id: 3,
-		name: "Dan Abramov",
-		number: "12-43-234345",
-	},
-	{
-		id: 4,
-		name: "Mary Poppendick",
-		number: "39-23-6423122",
-	},
-]
 morgan.token("body", (req, res) => JSON.stringify(req.body))
 
 app.use(
@@ -45,43 +25,47 @@ app.get("/", (request, response) => {
 })
 
 // this returns the page for /api/persons
-// it returns the persons array json
-app.get("/api/persons", (request, response) => {
-	response.json(persons)
+// it returns the Person database from mongodb
+app.get("/api/persons", (request, response, next) => {
+	Person.find({})
+		.then((people) => {
+			response.json(people)
+		})
+		.catch((error) => next(error))
 })
 
 // this returns the page for localhost/info
-app.get("/info", (request, response) => {
-	const str = `<p>Phonebook has info for ${persons.length} people.</p>
-                 <p>${new Date().toString()}</p>`
-	response.send(str)
+app.get("/info", (request, response, next) => {
+	Person.find({}).then((people) => {
+		const length = people.length
+		response.send(`<p>Phonebook has info for ${length} people.</p>
+						<p>${new Date().toString()}</p>`)
+	})
 })
 
 // this returns the person matching its id
-app.get("/api/persons/:id", (request, response) => {
-	const id = Number(request.params.id)
-	const person = persons.find((person) => person.id === id)
-
-	if (person) {
-		response.json(person)
-	} else {
-		response.status(404).end()
-	}
+app.get("/api/persons/:id", (request, response, next) => {
+	Person.findById(request.params.id)
+		.then((person) => {
+			if (person) {
+				response.json(person)
+			} else {
+				response.status(404).end()
+			}
+		})
+		.catch((error) => next(error))
 })
 
 // this deletes the resource matching the id
-app.delete("/api/persons/:id", (request, response) => {
-	const id = Number(request.params.id)
-	persons = persons.filter((person) => person.id !== id)
-	response.status(204).end()
+app.delete("/api/persons/:id", (request, response, next) => {
+	Person.findByIdAndDelete(request.params.id)
+		.then((result) => {
+			response.status(204).end()
+		})
+		.catch((error) => next(error))
 })
 
-const generateId = () => {
-	let id = Math.floor(Math.random() * 100) + persons.length
-	return id
-}
-
-app.post("/api/persons", (request, response) => {
+app.post("/api/persons", (request, response, next) => {
 	const person = request.body
 
 	if (!person.name) {
@@ -95,22 +79,43 @@ app.post("/api/persons", (request, response) => {
 		})
 	}
 
-	// this checks whether name is already in the persons array
-	let flag = 0
-	persons.forEach((p) => {
-		if (person.name === p.name) {
-			flag += 1
-		}
+	const per = new Person({
+		name: person.name,
+		number: person.number,
 	})
-	if (flag > 0) {
-		return response.status(400).json({
-			error: "name must be unique",
+
+	per.save()
+		.then((savedPerson) => {
+			response.json(savedPerson)
 		})
-	}
-	person.id = generateId()
-	persons = persons.concat(person)
-	response.json(person)
+		.catch((error) => next(error))
 })
+
+app.put("/api/persons/:id", (request, response, next) => {
+	const body = request.body
+
+	const per = {
+		name: body.name,
+		number: body.number,
+	}
+
+	Person.findByIdAndUpdate(request.params.id, per, { new: true })
+		.then((updatedPerson) => {
+			response.json(updatedPerson)
+		})
+		.catch((error) => next(error))
+})
+
+const errorHandler = (error, request, response, next) => {
+	console.log(error.message)
+	if (error.name === "CastError") {
+		return response.status(400).send({ error: "malformatted id" })
+	}
+
+	next(error)
+}
+
+app.use(errorHandler)
 
 const PORT = process.env.PORT || 3001
 
